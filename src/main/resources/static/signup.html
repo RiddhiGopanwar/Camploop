@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign Up — Camploop</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="logo">camploop<span class="dot">.</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="marketplace.html">Marketplace</a></li>
+    </ul>
+    <div class="nav-actions"></div>
+  </div>
+</nav>
+
+<div class="auth-shell grid-paper">
+  <div class="auth-card">
+    <h1>Join Camploop 🎓</h1>
+    <p class="sub">One account. Buy and sell right away.</p>
+    <div id="signup-alert"></div>
+    <form id="signup-form">
+      <div class="field">
+        <label>Full Name</label>
+        <input type="text" id="s-name" placeholder="Ananya Rao" required>
+      </div>
+      <div class="field">
+        <label>College Email</label>
+        <input type="email" id="s-email" placeholder="you@college.edu" required>
+      </div>
+      <div class="field">
+        <label>College <span style="text-transform:none;font-weight:400">(optional)</span></label>
+        <input type="text" id="s-college" placeholder="e.g. NIT Trichy">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="s-password" placeholder="At least 6 characters" required minlength="6">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+    </form>
+    <p class="form-note">Already on Camploop? <a href="login.html">Log in</a></p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script>
+  document.getElementById('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('signup-alert');
+    const btn = e.target.querySelector('button[type="submit"]');
+    alertBox.innerHTML = '';
+    btn.disabled = true;
+
+    const name = document.getElementById('s-name').value.trim();
+    const email = document.getElementById('s-email').value.trim();
+    const college = document.getElementById('s-college').value.trim();
+    const password = document.getElementById('s-password').value;
+
+    try {
+      const { session } = await Auth.signUp(name, email, password);
+
+      if (!session) {
+        // Supabase project has "confirm email" turned on — no session until they click the link
+        alertBox.innerHTML = `<div class="alert alert-success">Account created! Check your inbox (${email}) to confirm your email, then log in.</div>`;
+        e.target.reset();
+        btn.disabled = false;
+        return;
+      }
+
+      // Session exists immediately (email confirmation is off) — provision the profile row
+      // and save the college now, since Supabase Auth itself doesn't store it.
+      await Api.me();
+      if (college) await Api.updateMe({ college });
+      window.location.href = 'index.html';
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

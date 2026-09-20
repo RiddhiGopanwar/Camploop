@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marketplace — Camploop</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="logo">camploop<span class="dot">.</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="marketplace.html" class="active">Marketplace</a></li>
+      <li><a href="sell.html">Sell</a></li>
+      <li><a href="index.html#about">About</a></li>
+    </ul>
+    <div class="nav-actions" id="nav-auth-slot"></div>
+    <button class="nav-toggle" onclick="navToggle()">☰</button>
+  </div>
+</nav>
+
+<div class="container browse-header">
+  <div class="eyebrow">Marketplace</div>
+  <h1 class="section-title" style="margin-bottom:6px">Browse what's on campus</h1>
+  <p class="section-sub">Search, filter, and find your next find.</p>
+</div>
+
+<div class="container">
+  <form class="filters-bar" id="filters-form">
+    <input type="text" name="keyword" id="f-keyword" placeholder="Search products…">
+    <select name="category" id="f-category">
+      <option value="">All categories</option>
+    </select>
+    <select name="condition" id="f-condition">
+      <option value="">Any condition</option>
+      <option value="NEW">New</option>
+      <option value="LIKE_NEW">Like New</option>
+      <option value="GOOD">Good</option>
+      <option value="FAIR">Fair</option>
+      <option value="WELL_USED">Well Used</option>
+    </select>
+    <div class="price-inputs">
+      <input type="number" name="minPrice" id="f-min" placeholder="Min ₹">
+      <span>–</span>
+      <input type="number" name="maxPrice" id="f-max" placeholder="Max ₹">
+    </div>
+    <select name="sort" id="f-sort">
+      <option value="newest">Newest first</option>
+      <option value="price_low">Price: low to high</option>
+      <option value="price_high">Price: high to low</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+  </form>
+
+  <div class="products-grid" id="results-grid">
+    <div class="loading-row">Loading listings…</div>
+  </div>
+</div>
+
+<footer class="footer" style="margin-top:70px">
+  <div class="container footer-top">
+    <div class="footer-brand">
+      <div class="logo">camploop<span class="dot">.</span></div>
+      <p>The campus-exclusive marketplace where every student can both buy and sell.</p>
+    </div>
+    <div><h5>Camploop</h5><ul><li><a href="index.html#about">About</a></li><li><a href="marketplace.html">Marketplace</a></li><li><a href="sell.html">Sell an Item</a></li></ul></div>
+    <div><h5>Account</h5><ul><li><a href="login.html">Log In</a></li><li><a href="signup.html">Sign Up</a></li><li><a href="profile.html">My Profile</a></li></ul></div>
+    <div><h5>Support</h5><ul><li><a href="#">Contact</a></li><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li></ul></div>
+  </div>
+  <div class="footer-wordmark">camploop</div>
+  <div class="container footer-bottom"><span>© 2026 Camploop. Built for students, by students.</span><span>V1 — Campus Marketplace</span></div>
+</footer>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script>
+  const CATEGORIES = [
+    ['BOOKS_TEXTBOOKS', 'Books & Textbooks'], ['ELECTRONICS', 'Electronics'],
+    ['CALCULATORS', 'Calculators'], ['HOSTEL_ESSENTIALS', 'Hostel Essentials'],
+    ['FASHION', 'Fashion'], ['BAGS_ACCESSORIES', 'Bags & Accessories'],
+    ['CYCLES', 'Cycles'], ['GAMING', 'Gaming'],
+    ['ACADEMIC_SUPPLIES', 'Academic Supplies'], ['OTHERS', 'Others'],
+  ];
+  const catSelect = document.getElementById('f-category');
+  CATEGORIES.forEach(([key, label]) => {
+    const opt = document.createElement('option');
+    opt.value = key; opt.textContent = label;
+    catSelect.appendChild(opt);
+  });
+
+  // Pre-fill from ?category= query param (from homepage category tiles)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('category')) {
+    document.getElementById('f-category').value = urlParams.get('category');
+  }
+
+  let wishlistIds = new Set();
+
+  async function loadWishlist() {
+    try {
+      const wl = await Api.myWishlist();
+      wishlistIds = new Set(wl.map(w => w.product.id));
+    } catch (e) { wishlistIds = new Set(); }
+  }
+
+  async function runSearch() {
+    const grid = document.getElementById('results-grid');
+    grid.innerHTML = `<div class="loading-row">Loading listings…</div>`;
+
+    const params = {};
+    const keyword = document.getElementById('f-keyword').value.trim();
+    const category = document.getElementById('f-category').value;
+    const condition = document.getElementById('f-condition').value;
+    const minPrice = document.getElementById('f-min').value;
+    const maxPrice = document.getElementById('f-max').value;
+    const sort = document.getElementById('f-sort').value;
+
+    if (keyword) params.keyword = keyword;
+    if (category) params.category = category;
+    if (condition) params.condition = condition;
+    if (minPrice) params.minPrice = minPrice;
+    if (maxPrice) params.maxPrice = maxPrice;
+    params.sort = sort;
+
+    try {
+      const items = await Api.searchProducts(params);
+      if (!items.length) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><span class="emoji">🔍</span>No listings match those filters yet. Try widening your search.</div>`;
+        return;
+      }
+      grid.innerHTML = items.map(p => productCardHTML(p, wishlistIds)).join('');
+    } catch (e) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><span class="emoji">⚠️</span>${e.message}</div>`;
+    }
+  }
+
+  document.getElementById('filters-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    runSearch();
+  });
+
+  (async function init() {
+    await loadWishlist();
+    runSearch();
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sell an Item — Camploop</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="logo">camploop<span class="dot">.</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="marketplace.html">Marketplace</a></li>
+      <li><a href="sell.html" class="active">Sell</a></li>
+      <li><a href="index.html#about">About</a></li>
+    </ul>
+    <div class="nav-actions" id="nav-auth-slot"></div>
+    <button class="nav-toggle" onclick="navToggle()">☰</button>
+  </div>
+</nav>
+
+<div class="container" style="max-width:680px;padding-top:44px;padding-bottom:80px">
+  <div class="eyebrow">List a product</div>
+  <h1 class="section-title">Sell, exchange, or donate</h1>
+  <p class="section-sub" style="margin-bottom:32px">Fill in the details below — your listing goes live on the marketplace immediately. Camploop only connects you with the buyer; payment and handoff happen directly between you two, on campus.</p>
+
+  <div id="sell-alert"></div>
+
+  <form id="sell-form" class="auth-card" style="max-width:none;padding:30px">
+    <div class="field">
+      <label>Product Name</label>
+      <input type="text" id="s-name" placeholder="e.g. Data Structures Textbook (3rd Ed.)" required>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="s-description" placeholder="Condition details, edition, why you're listing it…" required></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Category</label>
+        <select id="s-category" required><option value="">Select category</option></select>
+      </div>
+      <div class="field">
+        <label>Condition</label>
+        <select id="s-condition" required>
+          <option value="">Select condition</option>
+          <option value="NEW">New</option>
+          <option value="LIKE_NEW">Like New</option>
+          <option value="GOOD">Good</option>
+          <option value="FAIR">Fair</option>
+          <option value="WELL_USED">Well Used</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Listing Type</label>
+      <div class="radio-group" id="listing-type-group">
+        <div class="radio-pill selected" data-value="SELL">Sell</div>
+        <div class="radio-pill" data-value="EXCHANGE">Exchange</div>
+        <div class="radio-pill" data-value="DONATE">Donate</div>
+      </div>
+    </div>
+
+    <div id="price-fields">
+      <div class="field-row">
+        <div class="field">
+          <label>Original Price (₹) <span style="text-transform:none;font-weight:400">(optional)</span></label>
+          <input type="number" id="s-original-price" placeholder="What you paid / MRP" min="0">
+        </div>
+        <div class="field">
+          <label>Selling Price (₹)</label>
+          <input type="number" id="s-selling-price" placeholder="What you're asking now" min="0">
+        </div>
+      </div>
+      <div class="savings-preview" id="savings-preview"></div>
+    </div>
+
+    <div class="field">
+      <label>Pickup / Exchange Location <span style="text-transform:none;font-weight:400">(optional)</span></label>
+      <select id="s-pickup">
+        <option value="">Not specified</option>
+        <option value="Hostel">Hostel</option>
+        <option value="Department">Department</option>
+        <option value="Library">Library</option>
+        <option value="Main Gate">Main Gate</option>
+        <option value="Other">Other campus location</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Product Images <span style="text-transform:none;font-weight:400">(up to 5)</span></label>
+      <div class="image-upload-grid" id="image-grid">
+        <label class="upload-tile" id="upload-tile">
+          +
+          <input type="file" id="s-image-input" accept="image/*" multiple style="display:none">
+        </label>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Publish Listing</button>
+  </form>
+</div>
+
+<footer class="footer" style="margin-top:20px">
+  <div class="container footer-top">
+    <div class="footer-brand"><div class="logo">camploop<span class="dot">.</span></div><p>The campus-exclusive marketplace where every student can both buy and sell.</p></div>
+    <div><h5>Camploop</h5><ul><li><a href="index.html#about">About</a></li><li><a href="marketplace.html">Marketplace</a></li><li><a href="sell.html">Sell an Item</a></li></ul></div>
+    <div><h5>Account</h5><ul><li><a href="login.html">Log In</a></li><li><a href="signup.html">Sign Up</a></li><li><a href="profile.html">My Profile</a></li></ul></div>
+    <div><h5>Support</h5><ul><li><a href="#">Contact</a></li><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li></ul></div>
+  </div>
+  <div class="footer-wordmark">camploop</div>
+  <div class="container footer-bottom"><span>© 2026 Camploop. Built for students, by students.</span><span>V1 — Campus Marketplace</span></div>
+</footer>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script>
+  const CATEGORIES = [
+    ['BOOKS_TEXTBOOKS', 'Books & Textbooks'], ['ELECTRONICS', 'Electronics'],
+    ['CALCULATORS', 'Calculators'], ['HOSTEL_ESSENTIALS', 'Hostel Essentials'],
+    ['FASHION', 'Fashion'], ['BAGS_ACCESSORIES', 'Bags & Accessories'],
+    ['CYCLES', 'Cycles'], ['GAMING', 'Gaming'],
+    ['ACADEMIC_SUPPLIES', 'Academic Supplies'], ['OTHERS', 'Others'],
+  ];
+  const catSelect = document.getElementById('s-category');
+  CATEGORIES.forEach(([key, label]) => {
+    const opt = document.createElement('option');
+    opt.value = key; opt.textContent = label;
+    catSelect.appendChild(opt);
+  });
+
+  let listingType = 'SELL';
+  document.querySelectorAll('#listing-type-group .radio-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('#listing-type-group .radio-pill').forEach(p => p.classList.remove('selected'));
+      pill.classList.add('selected');
+      listingType = pill.dataset.value;
+      document.getElementById('price-fields').style.display = (listingType === 'SELL') ? 'block' : 'none';
+    });
+  });
+
+  function updateSavingsPreview() {
+    const orig = parseFloat(document.getElementById('s-original-price').value);
+    const sell = parseFloat(document.getElementById('s-selling-price').value);
+    const preview = document.getElementById('savings-preview');
+    if (orig > 0 && sell >= 0 && orig > sell) {
+      const save = orig - sell;
+      const pct = Math.round((save / orig) * 100);
+      preview.textContent = `Save ₹${save.toLocaleString('en-IN')} (${pct}%) off the original price`;
+    } else {
+      preview.textContent = '';
+    }
+  }
+  document.getElementById('s-original-price').addEventListener('input', updateSavingsPreview);
+  document.getElementById('s-selling-price').addEventListener('input', updateSavingsPreview);
+
+  // ---- Image upload (to Supabase Storage) ----
+  const MAX_IMAGES = 5;
+  let uploadedImages = []; // { url, uploading }
+
+  function renderImageGrid() {
+    const grid = document.getElementById('image-grid');
+    const tile = document.getElementById('upload-tile');
+    grid.querySelectorAll('.thumb').forEach(el => el.remove());
+    uploadedImages.forEach((img, idx) => {
+      const div = document.createElement('div');
+      div.className = 'thumb';
+      div.innerHTML = img.uploading
+        ? `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;font-family:var(--font-mono)">…</div>`
+        : `<img src="${img.url}"><button type="button" class="remove-img" onclick="removeImage(${idx})">✕</button>`;
+      grid.insertBefore(div, tile);
+    });
+    tile.style.display = uploadedImages.length >= MAX_IMAGES ? 'none' : 'flex';
+  }
+
+  function removeImage(idx) {
+    uploadedImages.splice(idx, 1);
+    renderImageGrid();
+  }
+
+  document.getElementById('s-image-input').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files).slice(0, MAX_IMAGES - uploadedImages.length);
+    if (!files.length) return;
+
+    let session;
+    try { session = await Auth.getSession(); } catch (err) {}
+    if (!session) { toast('Log in to upload images', true); return; }
+
+    for (const file of files) {
+      const placeholder = { url: null, uploading: true };
+      uploadedImages.push(placeholder);
+      renderImageGrid();
+      try {
+        const url = await uploadProductImage(file, session.user.id);
+        placeholder.url = url;
+        placeholder.uploading = false;
+      } catch (err) {
+        uploadedImages = uploadedImages.filter(i => i !== placeholder);
+        toast('Image upload failed: ' + err.message, true);
+      }
+      renderImageGrid();
+    }
+    e.target.value = '';
+  });
+
+  renderImageGrid();
+
+  // Require login before allowing access to this page
+  (async function guard() {
+    try { await Api.me(); }
+    catch (e) { window.location.href = 'login.html?next=sell.html'; }
+  })();
+
+  document.getElementById('sell-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('sell-alert');
+    const submitBtn = document.getElementById('submit-btn');
+    alertBox.innerHTML = '';
+
+    if (uploadedImages.some(i => i.uploading)) {
+      alertBox.innerHTML = `<div class="alert alert-error">Please wait for your images to finish uploading.</div>`;
+      return;
+    }
+
+    const payload = {
+      name: document.getElementById('s-name').value.trim(),
+      description: document.getElementById('s-description').value.trim(),
+      category: document.getElementById('s-category').value,
+      condition: document.getElementById('s-condition').value,
+      listingType: listingType,
+      originalPrice: document.getElementById('s-original-price').value || null,
+      sellingPrice: listingType === 'SELL' ? (document.getElementById('s-selling-price').value || null) : null,
+      pickupLocation: document.getElementById('s-pickup').value || null,
+      images: uploadedImages.map(i => i.url).filter(Boolean),
+    };
+
+    submitBtn.disabled = true;
+    try {
+      const product = await Api.createProduct(payload);
+      toast('Listing published!');
+      window.location.href = `product.html?id=${product.id}`;
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

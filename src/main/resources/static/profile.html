@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Profile — Camploop</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="logo">camploop<span class="dot">.</span></a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="marketplace.html">Marketplace</a></li>
+      <li><a href="sell.html">Sell</a></li>
+    </ul>
+    <div class="nav-actions" id="nav-auth-slot"></div>
+    <button class="nav-toggle" onclick="navToggle()">☰</button>
+  </div>
+</nav>
+
+<header class="profile-hero" id="profile-hero">
+  <div class="container profile-hero-inner">
+    <span class="avatar-circle" id="ph-avatar">?</span>
+    <div>
+      <h1 id="ph-name">Loading…</h1>
+      <p id="ph-email"></p>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:10px">
+      <button class="btn btn-outline" style="background:var(--paper)" onclick="openEdit()">Edit Profile</button>
+      <button class="btn btn-outline" style="background:var(--paper)" onclick="doLogout()">Log Out</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="auth-card hidden" id="edit-card" style="max-width:520px;margin:24px auto;padding:26px">
+    <h1 style="font-size:19px">Edit profile</h1>
+    <div id="edit-alert"></div>
+    <form id="edit-form">
+      <div class="field"><label>Name</label><input type="text" id="e-name" required></div>
+      <div class="field"><label>College</label><input type="text" id="e-college" placeholder="e.g. NIT Trichy"></div>
+      <div class="field"><label>Profile Image URL <span style="text-transform:none;font-weight:400">(optional)</span></label><input type="text" id="e-image" placeholder="https://…"></div>
+      <div style="display:flex;gap:10px">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <button type="button" class="btn btn-outline" onclick="closeEdit()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="container">
+  <div class="stat-row">
+    <div class="stat-card"><div class="num" id="stat-listings">–</div><div class="label">Active Listings</div></div>
+    <div class="stat-card"><div class="num" id="stat-sold">–</div><div class="label">Sold Items</div></div>
+    <div class="stat-card"><div class="num" id="stat-wishlist">–</div><div class="label">Wishlist</div></div>
+    <div class="stat-card"><div class="num" id="stat-total">–</div><div class="label">Total Listed</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="listings">My Listings</button>
+    <button class="tab-btn" data-tab="wishlist">Wishlist</button>
+    <button class="tab-btn" data-tab="sold">Sold Items</button>
+    <button class="tab-btn" data-tab="recent">Recently Viewed</button>
+  </div>
+
+  <div id="tab-listings" class="tab-panel"><div class="loading-row">Loading your listings…</div></div>
+  <div id="tab-wishlist" class="tab-panel hidden"><div class="loading-row">Loading wishlist…</div></div>
+  <div id="tab-sold" class="tab-panel hidden"><div class="loading-row">Loading sold items…</div></div>
+  <div id="tab-recent" class="tab-panel hidden"><div class="loading-row">Loading recently viewed…</div></div>
+</div>
+
+<footer class="footer" style="margin-top:70px">
+  <div class="container footer-top">
+    <div class="footer-brand"><div class="logo">camploop<span class="dot">.</span></div><p>The campus-exclusive marketplace where every student can both buy and sell.</p></div>
+    <div><h5>Camploop</h5><ul><li><a href="index.html#about">About</a></li><li><a href="marketplace.html">Marketplace</a></li><li><a href="sell.html">Sell an Item</a></li></ul></div>
+    <div><h5>Account</h5><ul><li><a href="login.html">Log In</a></li><li><a href="signup.html">Sign Up</a></li><li><a href="profile.html">My Profile</a></li></ul></div>
+    <div><h5>Support</h5><ul><li><a href="#">Contact</a></li><li><a href="#">Terms</a></li><li><a href="#">Privacy</a></li></ul></div>
+  </div>
+  <div class="footer-wordmark">camploop</div>
+  <div class="container footer-bottom"><span>© 2026 Camploop. Built for students, by students.</span><span>V1 — Campus Marketplace</span></div>
+</footer>
+
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/main.js"></script>
+<script>
+  const thumbColors = ['#FFE3D9', '#FFF3C9', '#DCE7D3', '#DCE4F7', '#F6DCE9'];
+  let myListings = [];
+  let myWishlist = [];
+  let currentProfile = null;
+
+  async function doLogout() {
+    await Auth.signOut();
+    window.location.href = 'index.html';
+  }
+
+  function openEdit() {
+    document.getElementById('edit-card').classList.remove('hidden');
+    document.getElementById('e-name').value = currentProfile.name || '';
+    document.getElementById('e-college').value = currentProfile.college || '';
+    document.getElementById('e-image').value = currentProfile.profileImage || '';
+    document.getElementById('edit-card').scrollIntoView({ behavior: 'smooth' });
+  }
+  function closeEdit() { document.getElementById('edit-card').classList.add('hidden'); }
+
+  document.getElementById('edit-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const alertBox = document.getElementById('edit-alert');
+    alertBox.innerHTML = '';
+    try {
+      currentProfile = await Api.updateMe({
+        name: document.getElementById('e-name').value.trim(),
+        college: document.getElementById('e-college').value.trim(),
+        profileImage: document.getElementById('e-image').value.trim(),
+      });
+      renderProfileHeader();
+      closeEdit();
+      toast('Profile updated');
+    } catch (err) {
+      alertBox.innerHTML = `<div class="alert alert-error">${err.message}</div>`;
+    }
+  });
+
+  function renderProfileHeader() {
+    document.getElementById('ph-avatar').textContent = initials(currentProfile.name);
+    document.getElementById('ph-name').textContent = currentProfile.name;
+    document.getElementById('ph-email').textContent = currentProfile.email + (currentProfile.college ? ' · ' + currentProfile.college : '');
+  }
+
+  function priceText(p) {
+    return p.listingType === 'SELL' && p.sellingPrice != null ? formatPrice(p.sellingPrice)
+         : (p.listingType === 'DONATE' ? 'Free' : 'Exchange');
+  }
+
+  function listingCardHTML(p) {
+    const emoji = CATEGORY_EMOJI[p.category] || '📦';
+    const bg = thumbColors[p.id % thumbColors.length];
+    const thumb = (p.images && p.images.length) ? `<img src="${p.images[0]}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : emoji;
+    return `
+      <div class="dash-card">
+        <div class="dash-thumb" style="background:${bg}">${thumb}</div>
+        <div class="dash-info">
+          <h4>${escapeHtml(p.name)} <span class="status-pill ${p.status}">${p.status}</span></h4>
+          <div class="meta">${priceText(p)} · ${p.categoryLabel} · ${p.conditionLabel} · ${timeAgo(p.createdAt)}</div>
+        </div>
+        <div class="dash-actions">
+          ${p.status === 'AVAILABLE' ? `<button class="icon-btn" title="Mark as sold" onclick="markSold(${p.id})">✔️</button>
+          <button class="icon-btn" title="Mark unavailable" onclick="markUnavailable(${p.id})">🚫</button>` : ''}
+          <a class="icon-btn" title="View" href="product.html?id=${p.id}">👁️</a>
+          <button class="icon-btn danger" title="Delete" onclick="deleteListing(${p.id})">🗑️</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function wishlistCardHTML(w) {
+    const p = w.product;
+    const emoji = CATEGORY_EMOJI[p.category] || '📦';
+    const bg = thumbColors[p.id % thumbColors.length];
+    return `
+      <div class="dash-card">
+        <div class="dash-thumb" style="background:${bg}">${emoji}</div>
+        <div class="dash-info">
+          <h4>${escapeHtml(p.name)}</h4>
+          <div class="meta">${priceText(p)} · by ${escapeHtml(p.sellerName)} · ${p.categoryLabel}</div>
+        </div>
+        <div class="dash-actions">
+          <a class="icon-btn" title="View" href="product.html?id=${p.id}">👁️</a>
+          <button class="icon-btn danger" title="Remove" onclick="removeWishlistItem(${p.id})">✖️</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function markSold(id) {
+    try { await Api.markProductStatus(id, 'SOLD'); toast('Marked as sold'); await refreshListings(); }
+    catch (e) { toast(e.message, true); }
+  }
+  async function markUnavailable(id) {
+    try { await Api.markProductStatus(id, 'UNAVAILABLE'); toast('Marked unavailable'); await refreshListings(); }
+    catch (e) { toast(e.message, true); }
+  }
+  async function deleteListing(id) {
+    if (!confirm('Delete this listing? This cannot be undone.')) return;
+    try { await Api.deleteProduct(id); toast('Listing deleted'); await refreshListings(); }
+    catch (e) { toast(e.message, true); }
+  }
+  async function removeWishlistItem(productId) {
+    try { await Api.removeWishlist(productId); toast('Removed from wishlist'); await refreshWishlist(); }
+    catch (e) { toast(e.message, true); }
+  }
+
+  function renderStats() {
+    const active = myListings.filter(p => p.status === 'AVAILABLE').length;
+    const sold = myListings.filter(p => p.status === 'SOLD').length;
+    document.getElementById('stat-listings').textContent = active;
+    document.getElementById('stat-sold').textContent = sold;
+    document.getElementById('stat-wishlist').textContent = myWishlist.length;
+    document.getElementById('stat-total').textContent = myListings.length;
+  }
+
+  async function refreshListings() {
+    myListings = await Api.myProducts();
+    const panel = document.getElementById('tab-listings');
+    panel.innerHTML = myListings.length
+      ? myListings.map(listingCardHTML).join('')
+      : `<div class="empty-state"><span class="emoji">📦</span>You haven't listed anything yet.<br><br><a href="sell.html" class="btn btn-primary btn-sm">Sell your first item</a></div>`;
+
+    const soldPanel = document.getElementById('tab-sold');
+    const sold = myListings.filter(p => p.status === 'SOLD');
+    soldPanel.innerHTML = sold.length ? sold.map(listingCardHTML).join('') : `<div class="empty-state"><span class="emoji">✅</span>No sold items yet.</div>`;
+    renderStats();
+  }
+
+  async function refreshWishlist() {
+    myWishlist = await Api.myWishlist();
+    const panel = document.getElementById('tab-wishlist');
+    panel.innerHTML = myWishlist.length
+      ? myWishlist.map(wishlistCardHTML).join('')
+      : `<div class="empty-state"><span class="emoji">🤍</span>Nothing saved yet — browse the <a href="marketplace.html">marketplace</a> and tap the heart on anything you like.</div>`;
+    renderStats();
+  }
+
+  async function refreshRecentlyViewed() {
+    const panel = document.getElementById('tab-recent');
+    const ids = RecentlyViewed.getIds();
+    if (!ids.length) {
+      panel.innerHTML = `<div class="empty-state"><span class="emoji">🕓</span>Products you view will show up here.</div>`;
+      return;
+    }
+    try {
+      const products = await Promise.all(ids.map(id => Api.getProduct(id).catch(() => null)));
+      const valid = products.filter(Boolean);
+      panel.innerHTML = valid.length
+        ? valid.map(p => `
+          <div class="dash-card">
+            <div class="dash-thumb" style="background:${thumbColors[p.id % thumbColors.length]}">${(p.images && p.images.length) ? `<img src="${p.images[0]}" style="width:100%;height:100%;object-fit:cover;border-radius:8px">` : (CATEGORY_EMOJI[p.category] || '📦')}</div>
+            <div class="dash-info"><h4>${escapeHtml(p.name)}</h4><div class="meta">${priceText(p)} · ${p.categoryLabel}</div></div>
+            <div class="dash-actions"><a class="icon-btn" href="product.html?id=${p.id}">👁️</a></div>
+          </div>`).join('')
+        : `<div class="empty-state"><span class="emoji">🕓</span>Products you view will show up here.</div>`;
+    } catch (e) {
+      panel.innerHTML = `<div class="empty-state"><span class="emoji">⚠️</span>Couldn't load recently viewed items.</div>`;
+    }
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.remove('hidden');
+      if (btn.dataset.tab === 'recent') refreshRecentlyViewed();
+    });
+  });
+
+  /** If ?seller=<id> is present, show that student's public profile (read-only)
+   *  instead of the logged-in user's own dashboard — used from a product page's
+   *  "seller" link. Falls back to the normal dashboard otherwise. */
+  async function initSellerView(sellerId) {
+    document.querySelector('.stat-row').replaceWith(Object.assign(document.createElement('div'), { id: 'seller-stats-placeholder' }));
+    document.querySelector('.tabs').classList.add('hidden');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelector('.profile-hero-inner > div:last-child').innerHTML =
+      `<a href="marketplace.html" class="btn btn-outline" style="background:var(--paper)">← Back to Marketplace</a>`;
+
+    try {
+      const profile = await Api.getProfile(sellerId);
+      document.getElementById('ph-avatar').textContent = initials(profile.name);
+      document.getElementById('ph-name').textContent = profile.name;
+      document.getElementById('ph-email').textContent = profile.college || 'Student on Camploop';
+
+      const statRow = document.createElement('div');
+      statRow.className = 'stat-row';
+      statRow.style.marginTop = '0';
+      statRow.innerHTML = `
+        <div class="stat-card"><div class="num">${profile.activeListings}</div><div class="label">Active Listings</div></div>
+        <div class="stat-card"><div class="num">${profile.soldListings}</div><div class="label">Sold Items</div></div>
+      `;
+      document.getElementById('seller-stats-placeholder').replaceWith(statRow);
+    } catch (e) {
+      document.getElementById('ph-name').textContent = 'Profile not found';
+    }
+  }
+
+  (async function init() {
+    const sellerId = new URLSearchParams(window.location.search).get('seller');
+
+    if (sellerId) {
+      let loggedInUser = null;
+      try { loggedInUser = await Api.me(); } catch (e) {}
+      if (loggedInUser && loggedInUser.id === sellerId) {
+        // Viewing your own seller link — just show the normal full dashboard.
+      } else {
+        await initSellerView(sellerId);
+        return;
+      }
+    }
+
+    try {
+      currentProfile = await Api.me();
+      renderProfileHeader();
+    } catch (e) {
+      window.location.href = 'login.html?next=profile.html';
+      return;
+    }
+    await Promise.all([refreshListings(), refreshWishlist()]);
+  })();
+</script>
+</body>
+</html>
