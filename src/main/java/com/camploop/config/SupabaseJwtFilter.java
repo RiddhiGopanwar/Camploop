@@ -25,7 +25,7 @@ import java.security.spec.ECPoint;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPublicKeySpec;
 import java.security.AlgorithmParameters;
-import java.security.spec.NamedParameterSpec;
+import java.security.spec.ECGenParameterSpec;
 import java.util.Base64;
 
 @Component
@@ -158,8 +158,7 @@ public class SupabaseJwtFilter extends OncePerRequestFilter {
         AlgorithmParameters parameters =
                 AlgorithmParameters.getInstance("EC");
 
-        parameters.init(new NamedParameterSpec("secp256r1"));
-
+       parameters.init(new ECGenParameterSpec("secp256r1"));
         ECParameterSpec ecSpec =
                 parameters.getParameterSpec(ECParameterSpec.class);
 
